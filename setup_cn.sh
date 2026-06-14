@@ -1,101 +1,101 @@
 #!/bin/bash
-# MCSManager官方安装脚本.
-# 这个脚本将会把MCSManager服务端和节点服务端更新/安装至最新发布版本.
+# MCSManager官方安装脚本
+# 这个脚本将会把MCSManager服务端和节点服务端更新/安装至最新发布版本
 # ------------------------------------------------------------------------------
-# 受支持的Linux:
+# 受支持的Linux发行版:
 # 此脚本支持以下Linux发行版:
 # - Ubuntu: 18.04, 20.04, 22.04, 24.04
 # - Debian: 10, 11, 12, 13
 # - CentOS: 7, 8 Stream, 9 Stream, 10 Stream
 # - RHEL:   7, 8, 9, 10
-# - Arch Linux: Support planned (TBD)
+# - Arch Linux: 计划支持 (TBD)
 # ------------------------------------------------------------------------------
 
-# Target installation directory (can be overridden with --install-dir)
+# 目标安装目录(可以用--install-dir覆盖)
 install_dir="/opt/mcsmanager"
 
-# Primary download URL bas. Full package URL = download_base_url + package_name
+# 主要下载链接,完整URL = download_base_url + package_name
 download_base_url="https://cdn.imlazy.ink:233/files/"
 
-# Fallback download URL (can also be a local directory or mirror)
+# 回退下载URL(也可以是本地目录或镜像)
 download_fallback_url="https://github.com/MCSManager/MCSManager/releases/latest/download/mcsmanager_linux_release.tar.gz"
 
-# Name of the release package to download/detect
+# 要下载/检测的发布包的名称
 package_name="mcsmanager_linux_release.tar.gz"
 
-# Node.js version to be installed
-# Keep the leading "v"
+# 要安装的Node.js版本
+# 保持领先的"v"
 node_version="v20.12.2"
 node_version_centos7="v16.20.2"
 
-# Node download base URL - primary
+# Node基础下载URL - primary
 node_download_url_base="https://nodejs.org/dist/"
 
-# Unoffical build of Node.js, for more ISA support
+# Node.js的非官方构建,以获得更多ISA支持
 node_unoffical_build_url="https://unofficial-builds.nodejs.org/download/release/"
 
-# Node download URL - fallback.
-# This is the URL points directly to the file, not the base. This can also be a local absolute path.
-# Only supports https:// or http:// for web locations.
+# Node下载URL -fallback
+# 这是直接指向文件的URL,而不是基础,这也可以是局部绝对路径
+# 仅支持https://或http://用于web位置
 node_download_fallback=""
 
-# Node.js installation path (defaults to the MCSManager installation path. Can be overridden with --node-install-dir)
+# Node.js安装路径(默认为MCSManager安装路径,可以使用--node-install-dir覆盖)
 node_install_dir="$install_dir"
 
-# Temp dir for file extraction
+# 文件提取的临时目录
 tmp_dir="/tmp"
 
-# Bypass installed user permission check, override by --force-permission
+# 绕过已安装的用户权限检查,用--force权限覆盖
 force_permission=false
 
 
-# --------------- Global Variables ---------------#
-#                  DO NOT MODIFY                  #
+# ---------------全局变量---------------#
+#               禁止修改              #
 
 
-# Component installation options.
-# For fresh installs, both daemon and web components are installed by default.
-# For updates, behavior depends on detected existing components.
-# Can be overridden with --install daemon/web/all
+# 组件安装选项
+# 对于全新安装,默认情况下会安装daemon和web组件
+# 对于更新,行为取决于检测到的现有组件
+# 可以用--install-daemon/web/all覆盖
 install_daemon=true
 install_web=true
 
-# Install MCSM as (default: root).
-# To install as a general user (e.g., "mcsm"), use the --user option: --user mcsm
-# To ensure compatibility, only user mcsm is supported.
+# 以(默认：root)身份安装mcsm
+# 要以普通用户身份安装(例如"mcsm"),请使用--user选项：--user mcsm
+# 为确保兼容性,仅支持用户mcsm
 install_user="root"
-# Installed user, for permission check
+# 已安装用户,用于权限检查
 web_installed=false
 daemon_installed=false
 web_installed_user=""
 daemon_installed_user=""
 
-# Service file locations
-# the final dir = systemd_file + {web/daemon} + ".service"
+# 服务文件位置
+# 最终的dir=系统文件+{web/demon}+".service"
 systemd_file="/etc/systemd/system/mcsm-"
-# Optional: Override the default installation source file.
-# If --install-source is specified, the installer will use the provided
-# "mcsmanager_linux_release.tar.gz" file instead of downloading it.
-# Only support local absolute path.
+# 可选: 覆盖默认安装源文件
+# 如果指定了--install-source,安装程序将使用提供的
+# mcsmanager_linux_release.tar.gz文件,而不是下载它
+# 仅支持本地绝对路径
 install_source_path=""
 
-# temp path for extracted file(s)
+# 提取文件的临时路径
 install_tmp_dir="/opt/mcsmanager/mcsm_abcd"
 
-# dir name for data dir backup
-# e.g. /opt/mcsmanager/daemon/data -> /opt/mcsmanager/data_bak_data
-# only valid for when during an update
+# 数据目录备份的目录名称
+# 例如/opt/mcsmanager/daemon/data->/opt/mcsmanager/data_bak_data
+# 仅在更新期间有效
 backup_prefix="data_bak_"
 
-# System architecture (detected automatically)
+# 系统架构(自动检测)
 arch=""
 version=""
 distro=""
 
 
 
-# Supported OS versions (map-style structure)
-# Format: supported_os["distro_name"]="version1 version2 version3 ..."
+# 支持的操作系统版本(映射样式结构)
+# 格式: supported_os[发行版名称]=版本1版本2版本3...
 declare -A supported_os
 supported_os["Ubuntu"]="18 20 22 24"
 supported_os["Debian"]="10 11 12 13"
@@ -103,8 +103,8 @@ supported_os["CentOS"]="7 8 8-stream 9-stream 10-stream"
 supported_os["RHEL"]="7 8 9 10"
 supported_os["Arch"]="rolling"
 
-# Required system commands for installation
-# These will be checked before logic process
+# 安装所需的系统命令
+# 这些将在逻辑处理之前进行检查
 required_commands=(
   chmod
   chown
@@ -116,41 +116,41 @@ required_commands=(
   date
 )
 
-# Node.js related sections
-# Enable strict version checking (exact match)
-# enabled -> strict requriement for defined node version
-# false -> newer version allowed
-# Older version is NEVER allowed
+# 与Node.js相关的章节
+# 启用严格版本检查(精确匹配)
+# enableed->对定义的节点版本严格要求
+# false->允许更新版本
+# 不允许使用旧版本
 strict_node_version_check=true
 
-# Will be set based on actual node status
+# 将根据实际node状态进行设置
 install_node=true
-# Remove leading "v" from defined version
+# 从定义版本中删除前导"v"
 required_node_ver="${node_version#v}"
 
-# Holds absolute path for node & npm
+# 保存node和npm的绝对路径
 node_bin_path=""
 npm_bin_path=""
-# Hold Node.js arch name, e.g. x86_64 -> x64
+# 保留Node.js的架构名称,例如x86_64->x64
 node_arch=""
-# Hold Node.js intallation path, e.g. ${node_install_dir}/node-${node_version}-linux-${arch}
+# 保留Node.js安装路径,例如${Node_install_dir}/Node-${node_version}-linux-${arch}
 node_path=""
 
-# For installation result
+# 对于安装结果
 daemon_key=""
 daemon_port=""
 web_port=""
 daemon_key_config_subpath="data/Config/global.json"
 web_port_config_subpath="data/SystemConfig/config.json"
 
-# Terminal color & style related
-# Default to false, auto check later
+# 终端颜色和风格相关
+# 默认为false,稍后自动检查
 SUPPORTS_COLOR=false
 SUPPORTS_STYLE=false
-# Declare ANSI reset
+# 声明ANSI重置
 RESET="\033[0m"
 
-# Foreground colors
+# 前景颜色
 declare -A FG_COLORS=(
   [black]="\033[0;30m"
   [red]="\033[0;31m"
@@ -162,18 +162,18 @@ declare -A FG_COLORS=(
   [white]="\033[0;37m"
 )
 
-# Font styles
+# 字体样式
 declare -A STYLES=(
   [bold]="\033[1m"
   [underline]="\033[4m"
-  [italic]="\033[3m"  # Often ignored
+  [italic]="\033[3m"  # 经常被忽视
   [clear_line]="\r\033[2K"
   [strikethrough]="\033[9m"
 )
 
 
-### Helper Functions
-# Execution wrapper, avoid unexpected crashes.
+### Helper函数
+# 执行包装器,避免意外崩溃
 safe_run() {
   local func="$1"
   local err_msg="$2"
@@ -185,16 +185,16 @@ safe_run() {
   fi
 }
 
-# Function to ensure the script is run as root
+# 确保脚本以root身份运行的函数
 check_root() {
-  # Using Bash's built-in EUID variable
+  # 使用Bash内置的EUID变量
   if [ -n "$EUID" ]; then
     if [ "$EUID" -ne 0 ]; then
       cprint red "错误: 这个脚本只能运行在root或sudo模式下,请尝试切换用户或者使用sudo."
       exit 1
     fi
   else
-    # Fallback to using id -u if EUID is unavailable (e.g., non-Bash shell or misconfigured environment)
+    # 如果EUID不可用(例如,非Bash shell或配置错误的环境),则回退到使用id-u
     if [ "$(id -u)" -ne 0 ]; then
       cprint red "错误: 这个脚本只能运行在root或sudo模式下,请尝试切换用户或者使用sudo."
       exit 1
@@ -202,7 +202,7 @@ check_root() {
   fi
 }
 
-# Function to check whether current terminal support color & style
+# 这个功能用于检查当前终端是否支持颜色和样式
 detect_terminal_capabilities() {
   SUPPORTS_COLOR=false
   SUPPORTS_STYLE=false
@@ -219,17 +219,17 @@ detect_terminal_capabilities() {
   if [ "$SUPPORTS_COLOR" = true ]; then
     cprint green "[OK] 这个终端支持彩色输出."
   else
-    cprint yellow "注：终端不支持彩色输出。不格式化继续."
+    cprint yellow "注: 终端不支持彩色输出不格式化继续."
   fi
 
   if [ "$SUPPORTS_STYLE" = true ]; then
     cprint green "[OK] 终端支持粗体和下划线格式."
   else
-    cprint yellow "注意：终端不支持高级文本样式."
+    cprint yellow "注意: 终端不支持高级文本样式."
   fi
 }
 
-# Check whether daemon or web is installed
+# 检查是否安装了daemon或web
 is_component_installed() {
   local component_name="$1"
   local component_path="${install_dir}/${component_name}"
@@ -237,7 +237,7 @@ is_component_installed() {
   if [[ -d "$component_path" ]]; then
     cprint green "组件 '$component_name' 已经被安装在 $component_path"
 
-    # Set corresponding global variable
+    # 设置相应的全局变量
     if [[ "$component_name" == "daemon" ]]; then
       daemon_installed=true
     elif [[ "$component_name" == "web" ]]; then
@@ -248,7 +248,7 @@ is_component_installed() {
   else
     cprint yellow "组件 '$component_name' 未被安装"
 
-    # Set corresponding global variable
+    # 设置相应的全局变量
     if [[ "$component_name" == "daemon" ]]; then
       daemon_installed=false
     elif [[ "$component_name" == "web" ]]; then
@@ -265,27 +265,27 @@ check_component_permission() {
 
   if [[ ! -f "$service_file" ]]; then
     cprint yellow "找不到服务文件: $service_file"
-    return 0  # nothing changed
+    return 0  # 什么都没有改变
   fi
 
-  # Extract the User= line if it exists
+  # 提取User=行(如果存在)
   local user_line
   user_line=$(grep -E '^User=' "$service_file" 2>/dev/null | head -1)
 
   local user
   if [[ -z "$user_line" ]]; then
-    user="root"  # default if no User= is defined
+    user="root"  # 如果未定义User=,则默认
   else
     user="${user_line#User=}"
   fi
 
-  # Validate user
+  # 验证用户
   if [[ "$user" != "root" && "$user" != "mcsm" ]]; then
     cprint red bold "不支持的用户 '$user' 在 $service_file. 使用 'root' 或 'mcsm'."
     exit 1
   fi
 
-  # Assign to appropriate global
+  # 分配给适当的全局
   if [[ "$component" == "web" ]]; then
     web_installed_user="$user"
   elif [[ "$component" == "daemon" ]]; then
@@ -308,7 +308,7 @@ parse_args() {
           install_dir="$2"
           shift 2
         else
-          echo "错误：--install-dir需要一个路径参数."
+          echo "错误: --install-dir需要一个路径参数."
           exit 1
         fi
         ;;
@@ -317,7 +317,7 @@ parse_args() {
           node_install_dir="$2"
           shift 2
         else
-          echo "错误：--node-install-dir需要一个路径参数."
+          echo "错误: --node-install-dir需要一个路径参数."
           exit 1
         fi
         ;;
@@ -346,14 +346,14 @@ parse_args() {
               check_component_permission "web"
               ;;
             *)
-              echo "错误：--install的值无效。期望‘daemon’， ‘web’或‘all’."
+              echo "错误: --install的值无效期望‘daemon’, ‘web’或‘all’."
               echo "Usage: --install daemon|web|all"
               exit 1
               ;;
           esac
           shift 2
         else
-          echo "错误：提供了--install标志，但没有值。请指定：daemon、web或all."
+          echo "错误: 提供了--install标志,但没有值请指定: daemon、web或all."
           echo "使用方法: --install daemon|web|all"
           exit 1
         fi
@@ -375,7 +375,7 @@ parse_args() {
           esac
           shift 2
         else
-          echo "错误：--user需要一个值 (root 或 mcsm)."
+          echo "错误: --user需要一个值 (root 或 mcsm)."
           exit 1
         fi
         ;;
@@ -384,7 +384,7 @@ parse_args() {
           install_source_path="$2"
           shift 2
         else
-          echo "错误：--install-source需要文件路径."
+          echo "错误: --install-source需要文件路径."
           exit 1
         fi
         ;;
@@ -393,13 +393,13 @@ parse_args() {
         shift
         ;;
       *)
-        echo "错误：未知参数t: $1"
+        echo "错误: 未知参数t: $1"
         exit 1
         ;;
     esac
   done
 
-  # Auto-detect branch: only run if --install was not explicitly passed
+  # 自动检测分支: 仅在未显式传递--install时运行
   if [[ "$explicit_install_flag" == false ]]; then
     daemon_installed=false
     web_installed=false
@@ -413,7 +413,7 @@ parse_args() {
       check_component_permission "web"
     fi
 
-	# When only one component installed, we wanted to process that one only.
+	# 当只安装了一个组件时,我们只想处理那个组件
     if [[ "$daemon_installed" == true && "$web_installed" == false ]]; then
       install_daemon=true
       install_web=false
@@ -428,13 +428,13 @@ parse_args() {
 }
 
 
-# Get Distribution & Architecture Info
+# 获取分布和架构信息
 detect_os_info() {
   distro="Unknown"
   version="Unknown"
   arch=$(uname -m)
 
-  # Try primary source
+  # 尝试主要的来源
   if [ -f /etc/os-release ]; then
     . /etc/os-release
     distro_id="${ID,,}"
@@ -468,7 +468,7 @@ detect_os_info() {
     esac
   fi
 
-  # Fallbacks for missing or invalid version
+  # 回退丢失或无效的版本
   if [[ -z "$version" || "$version" == "unknown" || "$version" == "" ]]; then
     if [ -f /etc/issue ]; then
       version_guess=$(grep -oP '[0-9]+(\.[0-9]+)*' /etc/issue | head -1)
@@ -478,14 +478,14 @@ detect_os_info() {
     fi
   fi
 
-  # Normalize version: keep only major version
+  # 标准化版本: 仅保留主要的版本
   version_full="$version"
   cprint cyan "检测到操作系统: $distro $version_full"
   cprint cyan "检测到架构: $arch"
 }
 
 version_specific_rules() {
-    # Default: do nothing unless a rule matches
+    # 默认值: 除非规则匹配,否则不执行任何操作
 
     if [[ "$distro" == "CentOS" && "$version" == "7" ]]; then
         cprint yellow "Detected CentOS 7 — overriding Node.js version."
@@ -494,19 +494,19 @@ version_specific_rules() {
     fi
 }
 
-# Check if all required commands are available
+# 检查是否所有需要的命令都可用
 check_required_commands() {
   local missing=0
 
   for cmd in "${required_commands[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
-      echo "错误：必需的命令 '$cmd' 在PATH中不可用."
+      echo "错误: 必需的命令 '$cmd' 在PATH中不可用."
       missing=1
     fi
   done
 
   if [ "$missing" -ne 0 ]; then
-    echo "缺少一个或多个必需的命令。请安装后再试."
+    echo "缺少一个或多个必需的命令请安装后再试."
     return 1
   fi
 
@@ -514,16 +514,16 @@ check_required_commands() {
   return 0
 }
 
-# Print with specified color and style, fallback to RESET if not supported.
-# Supported colors*: black|red|green|yellow|blue|magenta|cyan|white
-# Supported styles*: bold|underline|italic|clear_line|strikethrough
-# *Note: some style may not necessarily work on all terminals.
-# Example usage:
-#  cprint green bold "Installation completed successfully."
-#  cprint red underline "Failed to detect required command: wget"
-#  cprint yellow "Warning: Disk space is low."
-#  cprint underline "Failed to detect required command: wget"
-#  cprint bold green underline"Installation completed successfully."
+# 使用指定的颜色和样式输出结果,如果不支持,请回退到预设
+# 支持的颜色*: black|red|green|yellow|blue|magenta|cyan|white
+# 支持的样式*: bold|underline|italic|clear_line|strikethrough
+# *注意: 某些样式可能不一定适用于所有终端
+# 示例用法:
+#  cprint green bold "安装已成功完成"
+#  cprint red underline "未能检测到所需的命令: wget"
+#  cprint yellow "警告: 磁盘空间不足"
+#  cprint underline "未能检测到所需的命令: wget"
+#  cprint bold green underline"安装已成功完成"
 
 cprint() {
   local color=""
@@ -577,7 +577,7 @@ cprint() {
 
 
 
-# Permission check before proceed with installation
+# 继续安装前进行权限检查
 permission_barrier() {
   if [[ "$web_installed" == false && "$daemon_installed" == false ]]; then
     cprint cyan "当前没有安装组件-跳过权限检查."
@@ -591,27 +591,27 @@ permission_barrier() {
     if [[ "${!is_installed_var}" == true ]]; then
       local installed_user="${!installed_user_var}"
 
-      # Step 0: Ensure installed user is detected
+      # 步骤0: 确保检测到已安装的用户
       if [[ -z "$installed_user" ]]; then
-        cprint red bold "检测到 '$component' 已安装，但无法从其systemd服务文件确定用户."
+        cprint red bold "检测到 '$component' 已安装,但无法从其systemd服务文件确定用户."
         cprint red "这可能表示自定义或不支持的服务文件设置."
         cprint red "拒绝执行以避免潜在的冲突."
         exit 1
       fi
 
-      # Step 1: User match check with optional force override
+      # 步骤1: 使用可选的强制覆盖进行用户匹配检查
       if [[ "$installed_user" != "$install_user" ]]; then
         if [[ "$force_permission" == true ]]; then
           cprint yellow bold "权限不匹配 '$component':"
           cprint yellow "以用户身份安装: $installed_user"
           cprint yellow "目标安装用户: $install_user"
-          cprint yellow "用户不匹配，但设置了--force-permission。继续和更新权限…"
+          cprint yellow "用户不匹配,但设置了--force-permission继续和更新权限..."
 		  sleep 3
 		else
           cprint red bold "权限不匹配 '$component':"
           cprint red "以用户身份安装: $installed_user"
           cprint red "目标安装用户: $install_user"
-          cprint red "用户不匹配，但设置了--force-permission。继续和更新权限..."
+          cprint red "用户不匹配,但设置了--force-permission继续和更新权限..."
           exit 1
 		fi
       else
@@ -621,7 +621,7 @@ permission_barrier() {
     fi
   done
 
-  # Step 2: Directory ownership check
+  # 步骤2: 目录所有权检查
   local dir_owner
   dir_owner=$(stat -c '%U' "$install_dir" 2>/dev/null)
 
@@ -636,7 +636,7 @@ permission_barrier() {
       cprint yellow "  目录: $install_dir"
       cprint yellow "  归:  $dir_owner"
       cprint yellow "  预期:  $install_user"
-      cprint yellow "  --force-permission设置。尽管不匹配，但继续."
+      cprint yellow "  --force-permission设置尽管不匹配,但继续."
 	  sleep 3
     else
       cprint red bold "安装目录所有权不匹配:"
@@ -649,14 +649,14 @@ permission_barrier() {
     cprint green bold "安装目录所有权检查通过: '$install_dir' is owned by '$install_user'."
   fi
 
-  cprint green bold "验证了权限和所有权。继续."
+  cprint green bold "验证了权限和所有权继续."
   return 0
 }
 
 
 
-# Map OS arch with actual Node.js Arch name
-# This function should be placed after var arch has been assigned a valid value.
+# 具有实际Node.js架构名称的Mac OS架构
+# 此函数应放置在为var-arch分配有效值之后
 resolve_node_arch() {
   case "$arch" in
     x86_64)
@@ -670,7 +670,7 @@ resolve_node_arch() {
       ;;
     loongarch64)
       node_arch="loong64"
-      # Use unoffical build
+      # 使用非官方构建版
       node_download_url_base=$node_unoffical_build_url
       ;;
     *)
@@ -679,21 +679,21 @@ resolve_node_arch() {
       ;;
   esac
 
-  # Assign node_path based on resolved arch and current version/install dir
+  # 根据解析的架构和当前版本/安装目录分配node_path
   node_path="${node_install_dir}/node-${node_version}-linux-${node_arch}"
 
   cprint cyan "解析了Node.js架构: $node_arch"
   cprint cyan "Node.js安装路径: $node_path"
 }
 
-# Check if Node.js at PATH is valid.
-# This function check Node.js version + NPM (if Node.js valid)
+# 检查PATH中的Node.js是否有效
+# 此功能检查Node.js版本号+NPM(如果Node.js有效)
 verify_node_at_path() {
   local node_path="$1"
   node_bin_path="$node_path/bin/node"
   npm_bin_path="$node_path/bin/npm"
 
-  # Node binary missing
+  # Node二进制文件缺失
   if [ ! -x "$node_bin_path" ]; then
     return 1
   fi
@@ -717,12 +717,12 @@ verify_node_at_path() {
     fi
   fi
 
-  # Check if npm exists and works using node (not $PATH/npm)
+  # 使用node(不是$PATH/npm)检查npm是否存在并工作
   if [ ! -x "$npm_bin_path" ]; then
     return 4
   fi
 
-  # Use node to run npm.js directly, in case env is broken
+  # 使用node直接运行npm.js,以防env损坏
   local npm_version
   npm_version="$("$node_bin_path" "$npm_bin_path" --version 2>/dev/null)"
   if [[ -z "$npm_version" ]]; then
@@ -733,8 +733,8 @@ verify_node_at_path() {
 }
 
 
-# Node.js pre-check. check if we need to install Node.js before installer run.
-# Use postcheck_node_after_install() to check after install.
+# Node.js预检查,检查我们是否需要在MCSManager安装程序运行之前安装Node.js
+# 安装后使用postcheck_node_after_install()进行检查
 check_node_installed() {
   verify_node_at_path "$node_path"
   local result=$?
@@ -753,11 +753,11 @@ check_node_installed() {
       install_node=true
       ;;
     3)
-      cprint red bold "Node.js版本不匹配。要求: $required_node_ver, 发现了其他的Node.js版本."
+      cprint red bold "Node.js版本不匹配要求: $required_node_ver, 发现了其他的Node.js版本."
       install_node=true
       ;;
     4)
-      cprint red bold "Node.js存在，但npm缺失或损坏."
+      cprint red bold "Node.js存在,但npm缺失或损坏."
       install_node=true
       ;;
     *)
@@ -767,7 +767,7 @@ check_node_installed() {
   esac
 }
 
-# Node.js post-check. check if Node.js is valid after install.
+# Node.js检查,安装后检查Node.js是否有效
 postcheck_node_after_install() {
   verify_node_at_path "$node_path"
   if [[ $? -ne 0 ]]; then
@@ -779,7 +779,7 @@ postcheck_node_after_install() {
   fi
 }
 
-# Install Node.js and check
+# 安装并检查Node.js
 install_node() {
   local archive_name="node-${node_version}-linux-${node_arch}.tar.xz"
   local target_dir="${node_install_dir}/node-${node_version}-linux-${node_arch}"
@@ -794,10 +794,10 @@ install_node() {
     return 1
   }
 
-  # Download
+  # 下载
   cprint cyan "下载Node.js: $download_url"
   if ! wget --progress=bar:force -O "$archive_path" "$download_url"; then
-    cprint yellow "主下载失败。尝试备用下载……"
+    cprint yellow "主下载失败尝试备用下载......"
 
     if [[ -n "$fallback" ]]; then
       if [[ "$fallback" =~ ^https?:// ]]; then
@@ -817,13 +817,13 @@ install_node() {
         return 1
       fi
     else
-      cprint red bold "没有配置备用源。不能继续进行."
+      cprint red bold "没有配置备用源不能继续进行."
       return 1
     fi
   fi
 
-  # Extract archive
-  cprint cyan "提取Node.js存档..."
+  # 提取压缩包
+  cprint cyan "提取Node.js压缩包..."
   if ! tar -xf "$archive_path" -C "$node_install_dir"; then
     cprint red bold "提取Node.js文件失败."
     return 1
@@ -841,11 +841,11 @@ install_node() {
     return 1
   fi
 
-  cprint cyan "清理文件……"
+  cprint cyan "清理文件......"
   rm -f "$archive_path"
 
   cprint green bold "Node.js $node_version 安装成功 $target_dir"
-  # Save resolved binary paths to global variables
+  # 将解析的二进制可执行文件路径保存到全局变量
   node_bin_path="${target_dir}/bin/node"
   npm_bin_path="${target_dir}/bin/npm"
 
@@ -854,19 +854,19 @@ install_node() {
   return 0
 }
 
-# Function to download MCSM package. fetch from primary URL first, then fallback URL.
-# This function only put extracted file(s) into install_dir, it does not perform the actual update.
+# 用于下载mcsm软件包的功能,首先从主URL获取,如果主URL不可用,那么从备用URL获取
+# 此函数仅将提取的文件放入install_dir中,它不会执行实际的更新
 download_mcsm() {
   local archive_name="$package_name"
   local archive_path="${tmp_dir}/${archive_name}"
   local primary_url="${download_base_url}${archive_name}"
   local fallback="$download_fallback_url"
 
-  cprint cyan bold "下载MCSManager安装包…"
+  cprint cyan bold "下载MCSManager安装包..."
 
-  # Step 1: Try downloading from primary URL
+  # 步骤1: 尝试从主URL下载
   if ! wget --progress=bar:force -O "$archive_path" "$primary_url"; then
-    cprint yellow "主下载失败。尝试备用资源…"
+    cprint yellow "主下载失败尝试备用资源..."
 
     if [[ -z "$fallback" ]]; then
       cprint red bold "没有指定备用URL或路径."
@@ -889,7 +889,7 @@ download_mcsm() {
     fi
   fi
 
-  # Step 2: Generate extract directory
+  # 步骤2: 创建提取目录
   local suffix
   suffix=$(tr -dc 'a-z0-9' </dev/urandom | head -c 4)
   local extracted_tmp_path="${tmp_dir}/mcsm_${suffix}"
@@ -913,7 +913,7 @@ download_mcsm() {
 
   rm -f "$archive_path"
 
-  # Step 3: Move the entire extracted directory to install_dir
+  # 步骤3: 将整个提取的目录移动到install_dir
   install_tmp_dir="${install_dir}/mcsm_${suffix}"
 
   if [[ -e "$install_tmp_dir" ]]; then
@@ -931,18 +931,18 @@ download_mcsm() {
   return 0
 }
 
-# Prepare user if needed
+# 必要时为用户做好准备
 prepare_user() {
   if [[ "$install_user" == "root" ]]; then
     cprint cyan "安装用户是'root' -跳过用户创建."
     return 0
   fi
 
-  # Check if user already exists
+  # 检查用户是否已存在
   if id "$install_user" &>/dev/null; then
     cprint green "用户 '$install_user' 已经存在."
   else
-    cprint cyan "创建系统用户: $install_user (无登录，无密码)..."
+    cprint cyan "创建系统用户: $install_user (无登录,无密码)..."
     if ! useradd --system --home "$install_dir" --shell /usr/sbin/nologin "$install_user"; then
       cprint red bold "创建用户失败: $install_user"
       exit 1
@@ -951,23 +951,23 @@ prepare_user() {
   fi
  
 
-  # Docker integration
+  # Docker集成
   if command -v docker &>/dev/null; then
-    cprint cyan "Docker已被安装 -检查组分配…"
+    cprint cyan "Docker已被安装 -检查组分配..."
 
     if getent group docker &>/dev/null; then
       if id -nG "$install_user" | grep -qw docker; then
-        cprint green "用户 '$install_user' 已经在“docker”组中."
+        cprint green "用户 '$install_user' 已经在docker组中."
       else
         cprint cyan "添加用户 '$install_user' 到 'docker' 组..."
         if usermod -aG docker "$install_user"; then
           cprint green "授予的Docker组访问权限 '$install_user'."
         else
-          cprint red "未能添加 '$install_user' 给“Docker”组。这个用户可能无法使用Docker."
+          cprint red "未能添加 '$install_user' 给Docker组这个用户可能无法使用Docker."
         fi
       fi
     else
-      cprint red "安装了Docker，但没有找到Docker组。跳过组分配."
+      cprint red "安装了Docker,但没有找到Docker组跳过组分配."
     fi
   else
     cprint yellow "未安装Docker -跳过Docker组配置."
@@ -975,30 +975,30 @@ prepare_user() {
 
   return 0
 }
-# Function to stop MCSM services if they exist
+# 用于停止mcsm服务(如果存在)的功能
 stop_mcsm_services() {
   cprint yellow bold "试图停止mcsm-web和mcsm-daemon服务..."
 
-  # Attempt to stop mcsm-web
+  # 尝试停止mcsm面板进程
   cprint blue "正在停止 mcsm-web..."
   if systemctl stop mcsm-web; then
     cprint green "mcsm-web 已停止."
   else
-    cprint red bold "警告：未能停止mcsm-web（可能不存在或已停止）."
+    cprint red bold "警告: 未能停止mcsm-web(可能不存在或已停止)."
   fi
 
-  # Attempt to stop mcsm-daemon
+  # 尝试停止mcsm守护进程
   cprint blue "正在停止 mcsm-daemon..."
   if systemctl stop mcsm-daemon; then
     cprint green "mcsm-daemon 已停止."
   else
-    cprint red bold "警告：未能停止mcsm-daemon（可能不存在或已停止）."
+    cprint red bold "警告: 未能停止mcsm-daemon(可能不存在或已停止)."
   fi
 }
-# Prepare file & permissions before install.
+# 安装前准备文件和权限
 mcsm_install_prepare() {
 
-  # Stop service if existed
+  # 停止服务(如果存在)
   stop_mcsm_services
   
   if [[ ! -d "$install_tmp_dir" ]]; then
@@ -1013,7 +1013,7 @@ mcsm_install_prepare() {
     exit 1
   }
 
-  # Normalize install_dir to ensure it ends with a slash
+  # 规范install_dir以确保它以"/"结尾
   [[ "${install_dir}" != */ ]] && install_dir="${install_dir}/"
 
   if [[ "$web_installed" == false && "$daemon_installed" == false ]]; then
@@ -1025,7 +1025,7 @@ mcsm_install_prepare() {
   return 0
 }
 
-# Install or update a component
+# 安装或更新组件
 install_component() {
   local component="$1"
   local target_path="${install_dir}${component}"
@@ -1034,7 +1034,7 @@ install_component() {
 
   cprint cyan bold "安装/更新组件: $component"
 
-  # Step 1: Move new component to install_dir
+  # 步骤1:将新组件移动到install_dir
   if [[ ! -d "$source_path" ]]; then
     cprint red bold "找不到源目录: $source_path"
 	cleanup_install_tmp
@@ -1057,7 +1057,7 @@ install_component() {
   cprint green "已移动 $component 到 $target_path"
 
 
-  # Step 3: Install NPM dependencies
+  # 步骤3: 安装NPM依赖库
   if [[ ! -x "$npm_bin_path" ]]; then
     cprint red bold "找不到npm二进制文件或无法执行: $npm_bin_path"
 	cleanup_install_tmp
@@ -1083,8 +1083,8 @@ install_component() {
   cprint green bold "组件 '$component' 安装/更新成功."
 }
 
-# Create systemd service for a given component.
-# This will overwrite the existing service file.
+# 为给定的组件创建systemd服务
+# 这将会覆盖现有的服务文件
 create_systemd_service() {
   local component="$1"
   local service_path="${systemd_file}${component}.service"
@@ -1130,9 +1130,9 @@ EOF
   return 0
 }
 
-# Extract daemon key and/or http port
+# 提取守护程序密钥和/或http端口
 extract_component_info() {
-  # DAEMON SECTION
+  # 守护进程部分
   if [[ "$install_daemon" == true ]]; then
     local daemon_service="mcsm-daemon.service"
     local daemon_path="${install_dir}/daemon"
@@ -1142,7 +1142,7 @@ extract_component_info() {
     if systemctl restart "$daemon_service"; then
       cprint green "守护进程服务已启动."
 
-      sleep 3  # Allow service to init and write configs
+      sleep 3  # 允许服务初始化和写入配置
 
       if [[ -f "$daemon_config_path" ]]; then
         daemon_key=$(grep -oP '"key"\s*:\s*"\K[^"]+' "$daemon_config_path")
@@ -1167,7 +1167,7 @@ extract_component_info() {
     fi
   fi
 
-  # WEB SECTION
+  # 面板端部分
   if [[ "$install_web" == true ]]; then
     local web_service="mcsm-web.service"
     local web_path="${install_dir}/web"
@@ -1177,7 +1177,7 @@ extract_component_info() {
     if systemctl restart "$web_service"; then
       cprint green "面板服务已启动."
 
-      sleep 3  # Allow time to populate config
+      sleep 3  # 留出时间填充配置
 
       if [[ -f "$web_config_path" ]]; then
         web_port=$(grep -oP '"httpPort"\s*:\s*\K[0-9]+' "$web_config_path")
@@ -1187,7 +1187,7 @@ extract_component_info() {
           cprint red "提取面板端口失败: $web_config_path"
         fi
       else
-        cprint red "面板配置文件未找到： $web_config_path"
+        cprint red "面板配置文件未找到:  $web_config_path"
       fi
     else
       cprint red bold "启动面板服务失败: $web_service"
@@ -1216,30 +1216,30 @@ print_install_result() {
   cprint white noprefix "_  /  / / / /___  ____/ /_  /  / / / /_/ /_  / / / /_/ /_  /_/ //  __/  /"
   cprint white noprefix "/_/  /_/  \____/  /____/ /_/  /_/  \__,_/ /_/ /_/\__,_/ _\__, / \___//_/"
   echo ""   
-  # status summary
+  # 状态摘要
   cprint yellow noprefix "安装/更新组件:"
   if [[ "$install_daemon" == true && -n "$daemon_key" && -n "$daemon_port" ]]; then
     cprint white noprefix "Daemon"
   elif [[ "$install_daemon" == true ]]; then
     cprint white noprefix nonl "Daemon "
-	cprint yellow noprefix "(部分，未完全检测到配置)"
+	cprint yellow noprefix "(部分,未完全检测到配置)"
   fi
 
   if [[ "$install_web" == true && -n "$web_port" ]]; then
     cprint white noprefix "Web"
   elif [[ "$install_web" == true ]]; then
     cprint white noprefix nonl "Web "
-	cprint yellow noprefix "(部分，未完全检测到配置)"
+	cprint yellow noprefix "(部分,未完全检测到配置)"
   fi
 
   echo ""
 
-  # Local IP detection
+  # 本地IP检测
   local ip_address
   ip_address=$(hostname -I 2>/dev/null | awk '{print $1}')
-  [[ -z "$ip_address" ]] && ip_address="你的IP"
+  [[ -z "$ip_address" ]] && ip_address="你的IP地址"
 
-  # Daemon info
+  # Daemon信息
   if [[ "$install_daemon" == true ]]; then
     local daemon_address="ws://$ip_address:${daemon_port:-Failed to Retrieve from Config file}"
     local daemon_key_display="${daemon_key:-Failed to Retrieve from Config file}"
@@ -1251,7 +1251,7 @@ print_install_result() {
     echo ""
   fi
 
-  # Web info
+  # Web信息
   if [[ "$install_web" == true ]]; then
     local web_address="http://$ip_address:${web_port:-Failed to Retrieve from Config file}"
     cprint yellow noprefix "HTTP面板地址:"
@@ -1260,13 +1260,13 @@ print_install_result() {
     echo ""
   fi
 
-  # Port guidance
+  # 端口号指导
   cprint yellow noprefix "注意:"
   cprint white noprefix "  确保防火墙放行上述端口."
-  cprint white noprefix "  如果从外部网络访问，您可能需要在路由器上配置端口转发."
+  cprint white noprefix "  如果从外部网络访问,您可能需要在路由器上配置端口转发."
   echo ""
 
-  # Service management help
+  # 服务管理帮助
   cprint yellow noprefix "MCSManager管理命令:"
   if [[ "$install_daemon" == true ]]; then
     cprint white noprefix nonl "  systemctl start   "
@@ -1290,14 +1290,14 @@ print_install_result() {
   fi
   echo ""
 
-  # Official doc
+  # 官方文档
   cprint yellow noprefix  "官方文档:"
   cprint white noprefix "  https://docs.mcsmanager.com/zh_cn/"
   echo ""
 
-  # HTTPS support
+  # HTTPS帮助
   cprint yellow noprefix  "需要HTTPS?"
-  cprint white noprefix "  为了开启HTTPS安全访问，需要配置反向代理:"
+  cprint white noprefix "  为了开启HTTPS安全访问,需要配置反向代理:"
   cprint white noprefix "  https://docs.mcsmanager.com/zh_cn/ops/proxy_https.html"
   echo ""
   
@@ -1306,8 +1306,8 @@ print_install_result() {
     cprint red noprefix "            你可能需要运行: chown -R $install_user <path> 手动更新权限."
   fi
 
-  # Closing message
-  cprint green noprefix  "安装完成。享受使用MCSManager管理服务器的乐趣!"
+  # 结束语
+  cprint green noprefix  "安装完成享受使用MCSManager面板管理服务器的乐趣吧!"
   echo ""
 }
 
@@ -1326,7 +1326,7 @@ install_mcsm() {
     components+=("daemon")
   fi
 
-  # Reload systemd after any service file changes
+  # 在任何服务文件更改后重新加载systemd
   if (( ${#components[@]} > 0 )); then
     cprint cyan "重新加载systemd守护进程..."
     # systemctl daemon-reexec
@@ -1346,9 +1346,9 @@ install_mcsm() {
     done
   fi
   
-  # Clean tmp dir
+  # 清理临时目录
   cleanup_install_tmp
-  # Extract installed component info
+  # 提取已安装的组件信息
   safe_run extract_component_info "未能从已安装的服务中提取运行时信息"
   safe_run print_install_result "未能打印安装结果"
   
@@ -1362,21 +1362,21 @@ main() {
   safe_run detect_os_info "OS检测失败"
   safe_run version_specific_rules "Failed to apply distro/version specific rules"
   
-  # To be moved to a master pre check function.
+  # 移动到master预检查功能
   safe_run resolve_node_arch "解析Node.js架构失败"
   
   safe_run check_required_commands "缺少必要的系统命令"
   
-  safe_run check_node_installed "在预期目录上检测到Node.js或npm失败。Node.js将被安装."
+  safe_run check_node_installed "在预期目录上检测到Node.js或npm失败Node.js将被安装."
   if [ "$install_node" = true ]; then
     safe_run install_node "Node.js安装失败"
   fi
 
   safe_run permission_barrier "权限验证失败-中止安装"
 
-  safe_run prepare_user "准备用户权限失败。处理步骤."
+  safe_run prepare_user "准备用户权限失败处理步骤."
   
-  safe_run download_mcsm "获取MCSManager源失败。处理步骤"
+  safe_run download_mcsm "获取MCSManager源失败处理步骤"
   safe_run mcsm_install_prepare "准备安装时出错"
   
   safe_run install_mcsm "未能安装 MCSManager"
