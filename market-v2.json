@@ -490,6 +490,37 @@
             }
         },
         {
+            "title": "ARK: Survival Ascended Server",
+            "title-zh": "方舟：生存飞升服务器",
+            "language": "en_us",
+            "platform": "Windows",
+            "description": "Use SteamCMD to install and run an ARK: Survival Ascended Dedicated Server.",
+            "description-zh": "使用 SteamCMD 安装并运行方舟：生存飞升专用服务器。",
+            "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2399830/header.jpg",
+            "gameType": "ARK: Survival Ascended",
+            "category": "Latest Version",
+            "runtime": "Windows 10/11 64-bit",
+            "hardware": "RAM 16G+, SSD",
+            "size": "",
+            "remark": "Allow UDP ports 7777, 7778, and 27015 through the firewall!",
+            "targetLink": "",
+            "author": "CollinHerber",
+            "tags": [
+                "Windows version"
+            ],
+            "setupInfo": {
+                "startCommand": ".\\ShooterGame\\Binaries\\Win64\\ArkAscendedServer.exe TheIsland_WP?listen?SessionName=MCSManager?Port=7777?QueryPort=27015?MaxPlayers=70 -NoBattlEye -server -log",
+                "stopCommand": "^C",
+                "updateCommand": "{mcsm_steamcmd} +login anonymous +force_install_dir \"{mcsm_workspace}\" +app_update 2430930 validate +quit",
+                "ie": "utf-8",
+                "oe": "utf-8",
+                "type": "steam/universal",
+                "tag": [
+                    "ARK: Survival Ascended"
+                ]
+            }
+        },
+        {
             "title": "EndStone MC Server",
             "language": "en_us",
             "platform": "Linux",

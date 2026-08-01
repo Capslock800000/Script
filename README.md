@@ -1,10 +1,10 @@
-<img src="https://public-link.oss-cn-shenzhen.aliyuncs.com/mcsm_picture/logo.png" alt="MCSManager.png" width="500px" />
+<a href="https://mcsmanager.com/" target="_blank">
+    <img src="https://raw.githubusercontent.com/MCSManager/MCSManager/master/frontend/src/assets/logo.png" alt="MCSManager.png" width="500px" />
+</a>
 
 <br />
 
 [Official Website](http://mcsmanager.com/)
-
-<br />
 
 ## What is this?
 
