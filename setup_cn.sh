@@ -24,7 +24,7 @@ download_fallback_url="https://github.com/MCSManager/MCSManager/releases/latest/
 package_name="mcsmanager_linux_release.tar.gz"
 
 # 要安装的Node.js版本
-# 保持领先的"v"
+# 保留前导的 "v"
 node_version="v20.12.2"
 node_version_centos7="v16.20.2"
 
@@ -71,7 +71,7 @@ web_installed_user=""
 daemon_installed_user=""
 
 # 服务文件位置
-# 最终的dir=系统文件+{web/demon}+".service"
+# 最终的dir=系统文件+{web/daemon}+".service"
 systemd_file="/etc/systemd/system/mcsm-"
 # 可选: 覆盖默认安装源文件
 # 如果指定了--install-source,安装程序将使用提供的
@@ -118,7 +118,7 @@ required_commands=(
 
 # 与Node.js相关的章节
 # 启用严格版本检查(精确匹配)
-# enableed->对定义的节点版本严格要求
+# enabled->对定义的节点版本严格要求
 # false->允许更新版本
 # 不允许使用旧版本
 strict_node_version_check=true
@@ -655,7 +655,7 @@ permission_barrier() {
 
 
 
-# 具有实际Node.js架构名称的Mac OS架构
+# 将操作系统架构映射为 Node.js 架构名称
 # 此函数应放置在为var-arch分配有效值之后
 resolve_node_arch() {
   case "$arch" in
@@ -963,7 +963,7 @@ prepare_user() {
         if usermod -aG docker "$install_user"; then
           cprint green "已授予用户 '$install_user' 的 Docker 组访问权限。"
         else
-          cprint red "能将 '$install_user' 添加至 Docker 组，该用户可能无法使用 Docker。"
+          cprint red "未能将 '$install_user' 添加至 Docker 组，该用户可能无法使用 Docker。"
         fi
       fi
     else
@@ -1376,7 +1376,7 @@ main() {
 
   safe_run prepare_user "用户权限准备失败"
   
-  safe_run download_mcsm "获取 MCSManager 安装包失败处理"
+  safe_run download_mcsm "获取 MCSManager 安装包失败"
   safe_run mcsm_install_prepare "准备安装时出错"
   
   safe_run install_mcsm "未能安装 MCSManager"
